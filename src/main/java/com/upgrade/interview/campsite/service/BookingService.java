@@ -6,6 +6,7 @@ import com.upgrade.interview.campsite.repository.BookingRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.stream.Collectors;
 
@@ -15,8 +16,12 @@ public class BookingService {
     @Autowired
     private BookingRepository bookingRepository;
 
-    public Collection<BookingDTO> allBookings() {
-        return bookingRepository.findAll().stream().map(this::entityToDTO).collect(Collectors.toList());
+    public Collection<BookingDTO> bookings(LocalDate from, LocalDate to) {
+        return bookingRepository
+                .findByArrivalDateBetweenOrDepartureDateBetweenOrArrivalDateLessThanAndDepartureDateGreaterThan(from, to, from, to, from, to)
+                .stream()
+                .map(this::entityToDTO)
+                .collect(Collectors.toList());
     }
 
     private BookingDTO entityToDTO(BookingEntity entity) {

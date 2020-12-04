@@ -36,11 +36,11 @@ public class AvailabilityController {
     @ApiOperation(value = "Availabilities for a given date range with the default being 1 month")
     @GetMapping("/availabilities")
     public Collection<AvailabilityDTO> availabilities(
-            @ApiParam(value = "Start date range", name = "from")
+            @ApiParam(value = "Start date range", name = "from", example = "YYYY-MM-DD")
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
             @RequestParam(required = false) LocalDate from,
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-            @ApiParam(value = "End date range", name = "to")
+            @ApiParam(value = "End date range", name = "to", example = "YYYY-MM-DD")
             @RequestParam(required = false) LocalDate to) {
         LOGGER.info("About to get availabilities");
         final LocalDate startDate = (from != null) ? from : LocalDate.now();
