@@ -12,3 +12,8 @@ mvn, spring boot, rest, with swagger and H2 as in memory-database
  then to check:
  -  restfull API, go to http://localhost:8081/api.campsite/swagger-ui.html
  - Database content (user/pwd = upgrade/upgrade), go http://localhost:8081/api.campsite/h2-console
+ 
+ 
+ #### TODO
+ - Test concurrency bookings
+ - Test concurrency booking locking timeout 
