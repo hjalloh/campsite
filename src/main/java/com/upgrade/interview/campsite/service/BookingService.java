@@ -38,6 +38,7 @@ public class BookingService {
     @Value("${campsite.reservation.max_days}")
     private String bookingMaxDays;
 
+    @Transactional(readOnly = true)
     public Collection<BookingDTO> bookings(LocalDate from, LocalDate to) {
         final LocalDate startDate = (from != null) ? from : LocalDate.now();
         final LocalDate endDate = (to != null) ? to : LocalDate.now().plusMonths(1).minusDays(1);
@@ -54,7 +55,56 @@ public class BookingService {
                 .collect(Collectors.toList());
     }
 
-    public Long book(BookingDTO booking) {
+    public Long book(final BookingDTO booking) {
+        checkBookingDateRange(booking);
+        return this.bookHelper(booking);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Lock(LockModeType.PESSIMISTIC_WRITE) // H2 in-memory only supports this mode of pessimistic locking
+    private Long bookHelper(final BookingDTO booking) {
+        checkIfRangeDateIsFree(booking);
+        return this.bookingRepository.saveAndFlush(bookingMapper.dtoToEntity(booking)).getId();
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void cancel(final Long bookingUID) {
+        Optional<BookingEntity> booking = this.bookingRepository.findById(bookingUID);
+        BookingEntity entity = booking.orElseThrow(() -> new InvalidInputException("Invalid booking ID: no booking found from ID " + bookingUID));
+        entity.setStatus(BookingStatus.CANCELLED.name());
+        this.bookingRepository.saveAndFlush(entity);
+    }
+
+    public void modify(final Long bookingUID, final BookingDTO bookingDTO) {
+        Optional<BookingEntity> bookingEntity = this.bookingRepository.findById(bookingUID);
+        BookingEntity entity = bookingEntity.orElseThrow(() -> new InvalidInputException("Invalid booking ID: no booking found from ID " + bookingUID));
+        checkBookingDateRange(bookingDTO);
+        this.modifyHelper(bookingDTO, entity);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Lock(LockModeType.PESSIMISTIC_WRITE) // H2 in-memory only supports this mode of pessimistic locking
+    private void modifyHelper(final BookingDTO dto, final BookingEntity entity) {
+        checkIfRangeDateIsFree(dto);
+        entity.setArrivalDate(dto.getArrivalDate());
+        entity.setDepartureDate(dto.getDepartureDate());
+        entity.setVisitorEmail(dto.getVisitorEmail());
+        entity.setVisitorFullName(dto.getVisitorFullName());
+        this.bookingRepository.saveAndFlush(entity);
+    }
+
+    private void checkIfRangeDateIsFree(BookingDTO dto) {
+        List<BookingEntity> currentBookings = bookingRepository.findBookings(BookingStatus.CANCELLED.name(),
+                dto.getArrivalDate(), dto.getDepartureDate().minusDays(1),
+                dto.getArrivalDate().plusDays(1), dto.getDepartureDate(),
+                dto.getArrivalDate(), dto.getDepartureDate());
+        if (!currentBookings.isEmpty()) {
+            LOGGER.error("Invalid booking dates: campsite already booked between {} and {}", dto.getArrivalDate(), dto.getDepartureDate());
+            throw new CampsiteAlreadyBookedException("Invalid booking dates: campsite already booked between " + dto.getArrivalDate() + " and " + dto.getDepartureDate() + ". Please choose another date range");
+        }
+    }
+
+    private void checkBookingDateRange(final BookingDTO booking) {
         if (booking.getArrivalDate().isEqual(booking.getDepartureDate()) || booking.getArrivalDate().isAfter(booking.getDepartureDate())) {
             LOGGER.error("Invalid booking date range: arrival date {} is equal / greater than departure date {}", booking.getArrivalDate(), booking.getDepartureDate());
             throw new InvalidInputException("Invalid booking date range: arrival date is equal/greater than departure date");
@@ -64,27 +114,5 @@ public class BookingService {
             LOGGER.error("Invalid booking dates: the campsite cannot be booked for more than {} days. ArrivalDate={}, DepartureDate={}", bookingMaxDays, booking.getArrivalDate(), booking.getDepartureDate());
             throw new InvalidInputException("Invalid booking dates: the campsite cannot be booked for more than " + bookingMaxDays + " days in a row");
         }
-        return this.bookHelper(booking);
-    }
-
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    @Lock(LockModeType.PESSIMISTIC_WRITE) // H2 in-memory only supports this mode of pessimistic locking
-    private Long bookHelper(BookingDTO booking) {
-        List<BookingEntity> currentBookings = bookingRepository.findBookings(BookingStatus.CANCELLED.name(),
-                booking.getArrivalDate(), booking.getDepartureDate().minusDays(1),
-                booking.getArrivalDate().plusDays(1), booking.getDepartureDate(),
-                booking.getArrivalDate(), booking.getDepartureDate());
-        if (!currentBookings.isEmpty()) {
-            LOGGER.error("Invalid booking dates: campsite already booked between {} and {}", booking.getArrivalDate(), booking.getDepartureDate());
-            throw new CampsiteAlreadyBookedException("Invalid booking dates: campsite already booked between " + booking.getArrivalDate() + " and " + booking.getDepartureDate() + ". Please choose another date range");
-        }
-        return this.bookingRepository.saveAndFlush(bookingMapper.dtoToEntity(booking)).getId();
-    }
-
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void cancel(Long bookUID) {
-        Optional<BookingEntity> booking = this.bookingRepository.findById(bookUID);
-        BookingEntity entity = booking.orElseThrow(() -> new InvalidInputException("Invalid booking ID: no booking found from ID " + bookUID));
-        entity.setStatus(BookingStatus.CANCELLED.name());
     }
 }

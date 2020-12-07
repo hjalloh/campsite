@@ -160,6 +160,51 @@ class BookingServiceTest {
         );
     }
 
+    @Test
+    public void testModify_should_throw_exception_when_booking_is_nonexistent() {
+        InvalidInputException exception = assertThrows(InvalidInputException.class, () -> bookingService.modify(Long.MAX_VALUE, null));
+        assertTrue(exception.getMessage().contains("no booking found from ID"));
+    }
+
+    @Test
+    public void testModify_should_throw_exception_when_booking_period_exceed_3_days() {
+        // GIVEN
+        LocalDate arrivalDate = LocalDate.now().minusWeeks(11);
+        LocalDate departureDate = arrivalDate.plusDays(3);
+        BookingDTO booking = booking(arrivalDate, departureDate);
+        Long bookingUID = bookingService.book(booking);
+        booking.setDepartureDate(departureDate.plusDays(6));
+
+        // WHEN
+        InvalidInputException exception = assertThrows(InvalidInputException.class, () -> bookingService.modify(bookingUID, booking));
+        assertTrue(exception.getMessage().contains("for more than 3 days"));
+    }
+
+    @Test
+    public void testModify_should_succeed() {
+        // GIVEN
+        LocalDate arrivalDate = LocalDate.now().minusWeeks(15);
+        LocalDate departureDate = arrivalDate.plusDays(3);
+        BookingDTO booking = booking(arrivalDate, departureDate);
+        Long bookingUID = bookingService.book(booking);
+        LocalDate newArrivalDate = arrivalDate.plusDays(6);
+        booking.setArrivalDate(newArrivalDate);
+        LocalDate newDepartureDate = newArrivalDate.plusDays(2);
+        booking.setDepartureDate(newDepartureDate);
+
+        // WHEN
+        bookingService.modify(bookingUID, booking);
+        Optional<BookingEntity> entity = bookingRepository.findById(bookingUID);
+
+        // THEN
+        assertAll(
+                () -> assertTrue(entity.isPresent()),
+                () -> assertEquals(newArrivalDate, entity.get().getArrivalDate()),
+                () -> assertEquals(newDepartureDate, entity.get().getDepartureDate()),
+                () -> assertEquals("hamidou.diallo@upgrade.com", entity.get().getVisitorEmail())
+        );
+    }
+
     private BookingDTO booking(LocalDate arrivalDate, LocalDate departureDate) {
         return new BookingDTO(null, "hamidou.diallo@upgrade.com", "Hamidou Diallo", arrivalDate, departureDate);
     }

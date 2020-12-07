@@ -31,7 +31,7 @@ public class AvailabilityController {
     @ApiResponses(value = {
             @ApiResponse(code = HttpServletResponse.SC_OK, message = "Availabilities if there is one"),
             @ApiResponse(code = HttpServletResponse.SC_INTERNAL_SERVER_ERROR, message = "Request processing error"),
-            @ApiResponse(code = HttpServletResponse.SC_BAD_REQUEST, message = "Invalid input")
+            @ApiResponse(code = HttpServletResponse.SC_BAD_REQUEST, message = "Invalid date range: start date is greater than the end date")
     })
     @ApiOperation(value = "Availabilities for a given date range with the default being 1 month")
     @GetMapping("/availabilities")
@@ -43,13 +43,6 @@ public class AvailabilityController {
             @ApiParam(value = "End date range", name = "to", example = "YYYY-MM-DD")
             @RequestParam(required = false) LocalDate to) {
         LOGGER.info("About to get availabilities");
-        final LocalDate startDate = (from != null) ? from : LocalDate.now();
-        final LocalDate endDate = (to != null) ? to : LocalDate.now().plusMonths(1).minusDays(1);
-        if (startDate.isAfter(endDate)) {
-            LOGGER.error("Invalid date range: start date {} is greater than end date {}", from, to);
-            throw new InvalidInputException("Invalid date range: start date is greater than end date");
-        }
-
-        return this.availabilityService.availabilities(startDate, endDate);
+        return this.availabilityService.availabilities(from, to);
     }
 }

@@ -63,7 +63,6 @@ public class BookingController {
     @ApiOperation(value = "To cancel a reservation")
     @ApiResponses(value = {
             @ApiResponse(code = HttpServletResponse.SC_OK, message = "Reservation successfully cancelled"),
-            @ApiResponse(code = HttpServletResponse.SC_BAD_REQUEST, message = "Invalid date range: start date is greater than the end date"),
             @ApiResponse(code = HttpServletResponse.SC_INTERNAL_SERVER_ERROR, message = "Request processing error")
     })
     @DeleteMapping("/{bookUID}")
@@ -74,4 +73,18 @@ public class BookingController {
         LOGGER.info("Booking with ID={} successfully cancelled", bookUID);
     }
 
+    @ApiOperation(value = "To modify a reservation")
+    @ApiResponses(value = {
+            @ApiResponse(code = HttpServletResponse.SC_OK, message = "Reservation successfully modified"),
+            @ApiResponse(code = HttpServletResponse.SC_BAD_REQUEST, message = "Invalid booking date range: either the reservation is for more than 3 days or arrival date is same/greater than the departure date"),
+            @ApiResponse(code = HttpServletResponse.SC_CONFLICT, message = "Campsite already booked at this period. Please select another date range"),
+            @ApiResponse(code = HttpServletResponse.SC_INTERNAL_SERVER_ERROR, message = "Request processing error")
+    })
+    @PutMapping("/{bookingUID}")
+    public void modify(@ApiParam(value = "Unique booking identifier", required = true) @PathVariable("bookingUID") Long bookingUID,
+                       @RequestBody BookingDTO booking) {
+        LOGGER.info("About to modify the booking with ID={}", bookingUID);
+        this.bookingService.modify(bookingUID, booking);
+        LOGGER.info("Booking successfully modified");
+    }
 }

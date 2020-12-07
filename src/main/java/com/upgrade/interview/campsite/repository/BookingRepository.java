@@ -9,12 +9,6 @@ import java.util.List;
 
 public interface BookingRepository extends JpaRepository<BookingEntity, Long> {
 
-    List<BookingEntity> findByArrivalDateBetweenOrDepartureDateBetweenOrArrivalDateLessThanAndDepartureDateGreaterThanAndStatusNot(
-            LocalDate arrivalDateStart, LocalDate arrivalDateEnd,
-            LocalDate departureDateStart, LocalDate departureDateEnd,
-            LocalDate from, LocalDate to,
-            String status);
-
     @Query(value = "SELECT * FROM booking b WHERE b.status <> ?1 " +
                     "AND (b.arrival_date BETWEEN ?2 AND ?3 " +
                     "   OR b.departure_date BETWEEN ?4 AND ?5 " +
