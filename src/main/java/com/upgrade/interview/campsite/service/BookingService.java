@@ -1,26 +1,23 @@
 package com.upgrade.interview.campsite.service;
 
-import com.upgrade.interview.campsite.BookingMapper;
 import com.upgrade.interview.campsite.DTO.BookingDTO;
 import com.upgrade.interview.campsite.entity.BookingEntity;
 import com.upgrade.interview.campsite.exception.CampsiteAlreadyBookedException;
 import com.upgrade.interview.campsite.exception.InvalidInputException;
+import com.upgrade.interview.campsite.mapper.BookingMapper;
 import com.upgrade.interview.campsite.repository.BookingRepository;
 import com.upgrade.interview.campsite.utils.BookingStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.jpa.repository.Lock;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.persistence.LockModeType;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -61,8 +58,7 @@ public class BookingService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    @Lock(LockModeType.PESSIMISTIC_WRITE) // H2 in-memory only supports this mode of pessimistic locking
-    private Long bookHelper(final BookingDTO booking) {
+    private synchronized Long bookHelper(final BookingDTO booking) {
         checkIfRangeDateIsFree(booking);
         return this.bookingRepository.saveAndFlush(bookingMapper.dtoToEntity(booking)).getId();
     }
@@ -83,7 +79,6 @@ public class BookingService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    @Lock(LockModeType.PESSIMISTIC_WRITE) // H2 in-memory only supports this mode of pessimistic locking
     private void modifyHelper(final BookingDTO dto, final BookingEntity entity) {
         checkIfRangeDateIsFree(dto);
         entity.setArrivalDate(dto.getArrivalDate());
@@ -93,12 +88,12 @@ public class BookingService {
         this.bookingRepository.saveAndFlush(entity);
     }
 
-    private void checkIfRangeDateIsFree(BookingDTO dto) {
-        List<BookingEntity> currentBookings = bookingRepository.findBookings(BookingStatus.CANCELLED.name(),
+    private synchronized void checkIfRangeDateIsFree(BookingDTO dto) {
+        long bookingsCount = bookingRepository.bookingsCount(BookingStatus.CANCELLED.name(),
                 dto.getArrivalDate(), dto.getDepartureDate().minusDays(1),
                 dto.getArrivalDate().plusDays(1), dto.getDepartureDate(),
                 dto.getArrivalDate(), dto.getDepartureDate());
-        if (!currentBookings.isEmpty()) {
+        if (bookingsCount > 0) {
             LOGGER.error("Invalid booking dates: campsite already booked between {} and {}", dto.getArrivalDate(), dto.getDepartureDate());
             throw new CampsiteAlreadyBookedException("Invalid booking dates: campsite already booked between " + dto.getArrivalDate() + " and " + dto.getDepartureDate() + ". Please choose another date range");
         }

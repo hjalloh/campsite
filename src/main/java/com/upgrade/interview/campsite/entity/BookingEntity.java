@@ -5,7 +5,7 @@ import java.time.LocalDate;
 import java.util.Objects;
 
 @Entity
-@Table(name = "booking", uniqueConstraints = @UniqueConstraint(columnNames = {"arrival_date", "departure_date"}))
+@Table(name = "booking", uniqueConstraints = @UniqueConstraint(columnNames = {"arrival_date", "departure_date", "status"}))
 public class BookingEntity {
 
     @Id

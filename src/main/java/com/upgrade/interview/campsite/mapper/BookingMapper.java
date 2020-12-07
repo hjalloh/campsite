@@ -1,4 +1,4 @@
-package com.upgrade.interview.campsite;
+package com.upgrade.interview.campsite.mapper;
 
 import com.upgrade.interview.campsite.DTO.BookingDTO;
 import com.upgrade.interview.campsite.entity.BookingEntity;
