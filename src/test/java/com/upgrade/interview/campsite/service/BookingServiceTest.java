@@ -171,6 +171,27 @@ class BookingServiceTest {
     }
 
     @Test
+    public void testBook_cancel_then_book_should_succeed() {
+        LocalDate arrivalDate = LocalDate.now().minusWeeks(15);
+        LocalDate departureDate = arrivalDate.plusDays(3);
+        BookingDTO booking = booking(arrivalDate, departureDate);
+        Long bookingUID_1 = bookingService.book(booking);
+        bookingService.cancel(bookingUID_1);
+
+        // WHEN
+        Long bookingUID_2 = bookingService.book(booking);
+        Optional<BookingEntity> entity = bookingRepository.findById(bookingUID_2);
+
+        // THEN
+        assertAll(
+                () -> assertNotEquals(bookingUID_1, bookingUID_2),
+                () -> assertTrue(entity.isPresent()),
+                () -> assertEquals(arrivalDate, entity.get().getArrivalDate()),
+                () -> assertEquals(departureDate, entity.get().getDepartureDate())
+        );
+    }
+
+    @Test
     public void testCancel_should_succeed() {
         // GIVEN
         LocalDate arrivalDate = LocalDate.now().minusWeeks(6);
