@@ -1,3 +1,7 @@
+### Statement
+
+See the [exercise statement](Statement.pdf)
+
 ### Stack
 mvn, spring boot, rest, with swagger and H2 as in memory-database
 
@@ -14,7 +18,7 @@ mvn, spring boot, rest, with swagger and H2 as in memory-database
 - Either launch the class **CampsiteApplication** from your favorite IDE (IntelliJ or Eclipse)
 - run below cmd
 
-        java -jar target/campsite-1.0.0-SNAPSHOT.jar & 
+        java -jar target/scallable-campsite-1.0.0-SNAPSHOT.jar & 
  - then to check:
     - restfull API, go to http://localhost:8081/api.campsite/swagger-ui.html
     - Database content (user/pwd = upgrade/upgrade), go http://localhost:8081/api.campsite/h2-console

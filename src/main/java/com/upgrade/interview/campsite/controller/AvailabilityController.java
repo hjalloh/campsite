@@ -1,7 +1,6 @@
 package com.upgrade.interview.campsite.controller;
 
 import com.upgrade.interview.campsite.DTO.AvailabilityDTO;
-import com.upgrade.interview.campsite.exception.InvalidInputException;
 import com.upgrade.interview.campsite.service.AvailabilityService;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
@@ -9,7 +8,6 @@ import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -19,14 +17,16 @@ import javax.servlet.http.HttpServletResponse;
 import java.time.LocalDate;
 import java.util.Collection;
 
-
 @RestController
 public class AvailabilityController {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AvailabilityController.class);
 
-    @Autowired
-    private AvailabilityService availabilityService;
+    private final AvailabilityService availabilityService;
+
+    public AvailabilityController(AvailabilityService availabilityService) {
+        this.availabilityService = availabilityService;
+    }
 
     @ApiResponses(value = {
             @ApiResponse(code = HttpServletResponse.SC_OK, message = "Availabilities if there is one"),

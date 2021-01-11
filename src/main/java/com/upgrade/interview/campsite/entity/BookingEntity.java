@@ -8,14 +8,17 @@ import java.util.Objects;
 @Table(name = "booking", uniqueConstraints = @UniqueConstraint(columnNames = {"arrival_date", "departure_date", "status"}))
 public class BookingEntity {
 
+    @Version
+    private Long version;
+
     @Id
     @GeneratedValue
     private Long id;
 
-    @Column(name = "visitor_email", nullable = false)
+    @Column(name = "visitor_email")
     private String visitorEmail;
 
-    @Column(name = "visitor_full_name", nullable = false)
+    @Column(name = "visitor_full_name")
     private String visitorFullName;
 
     @Column(name = "arrival_date", columnDefinition = "DATE", nullable = false)
@@ -26,6 +29,9 @@ public class BookingEntity {
 
     @Column(nullable = false)
     private String status;
+
+    @Column(name = "parent_id")
+    private Long parentId;
 
     public BookingEntity() {
     }
@@ -102,12 +108,21 @@ public class BookingEntity {
                 visitorFullName.equals(that.visitorFullName) &&
                 arrivalDate.equals(that.arrivalDate) &&
                 departureDate.equals(that.departureDate) &&
-                status.equals(that.status);
+                status.equals(that.status) &&
+                parentId.equals(that.parentId);
     }
 
     @Override
     public int hashCode() {
         return Objects.hash(id, visitorEmail, visitorFullName, arrivalDate, departureDate, status);
+    }
+
+    public Long getParentId() {
+        return parentId;
+    }
+
+    public void setParentId(Long parentId) {
+        this.parentId = parentId;
     }
 
     @Override
@@ -119,6 +134,7 @@ public class BookingEntity {
                 ", arrivalDate=" + arrivalDate +
                 ", departureDate=" + departureDate +
                 ", status='" + status + '\'' +
+                ", parentId='" + parentId + '\'' +
                 '}';
     }
 }

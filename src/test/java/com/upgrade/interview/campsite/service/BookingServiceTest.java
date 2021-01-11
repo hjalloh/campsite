@@ -14,10 +14,7 @@ import org.springframework.boot.test.mock.mockito.SpyBean;
 
 import java.time.LocalDate;
 import java.util.*;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -36,7 +33,7 @@ class BookingServiceTest {
     @Test
     public void testConcurrentBook_should_succeed() throws InterruptedException {
         // GIVEN
-        LocalDate arrivalDate = LocalDate.now().plusWeeks(3);
+        LocalDate arrivalDate = LocalDate.now().plusDays(1);
         LocalDate departureDate = arrivalDate.plusDays(3);
         final BookingDTO booking_1 = booking(arrivalDate, departureDate);
         final BookingDTO booking_2 = booking(arrivalDate.plusDays(2), departureDate.plusDays(1));
@@ -52,7 +49,9 @@ class BookingServiceTest {
         ExecutorService threadPool = Executors.newFixedThreadPool(2);
         threadPool.invokeAll(callables);
         threadPool.shutdown();
-        threadPool.awaitTermination(1, TimeUnit.MINUTES);
+        if (!threadPool.awaitTermination(15, TimeUnit.SECONDS)) {
+            threadPool.shutdownNow();
+        }
 
         // THEN
         Collection<BookingDTO> bookings = bookingService.bookings(arrivalDate, departureDate);
@@ -65,8 +64,8 @@ class BookingServiceTest {
     @Test
     public void testNonConcurrentBook_should_succeed() {
         // GIVEN
-        LocalDate arrivalDate = LocalDate.now().plusWeeks(5);
-        LocalDate departureDate = arrivalDate.plusDays(3);
+        LocalDate arrivalDate = LocalDate.now().plusWeeks(1);
+        LocalDate departureDate = arrivalDate.plusDays(1);
         final BookingDTO booking = booking(arrivalDate, departureDate);
 
         // WHEN
@@ -78,17 +77,18 @@ class BookingServiceTest {
                 () -> assertNotNull(bookUID),
                 () -> assertTrue(entity.isPresent()),
                 () -> assertEquals(arrivalDate, entity.get().getArrivalDate()),
-                () -> assertEquals(departureDate, entity.get().getDepartureDate())
+                () -> assertEquals(departureDate, entity.get().getDepartureDate()),
+                () -> assertEquals(entity.get().getId(), entity.get().getParentId())
         );
     }
 
     @Test
     public void testNonConcurrentBook_should_succeed_when_arrival_date_equal_to_departure_date_of_another_booking() {
         // GIVEN
-        LocalDate arrivalDate = LocalDate.now().plusWeeks(6);
-        LocalDate departureDate = arrivalDate.plusDays(3);
+        LocalDate arrivalDate = LocalDate.now().plusDays(8);
+        LocalDate departureDate = arrivalDate.plusDays(1);
         final BookingDTO booking_1 = booking(arrivalDate, departureDate);
-        final BookingDTO booking_2 = booking(departureDate, departureDate.plusDays(3));
+        final BookingDTO booking_2 = booking(departureDate, departureDate.plusDays(2));
 
         // WHEN
         bookingService.book(booking_1);
@@ -100,14 +100,15 @@ class BookingServiceTest {
                 () -> assertNotNull(bookUID),
                 () -> assertTrue(entity.isPresent()),
                 () -> assertEquals(departureDate, entity.get().getArrivalDate()),
-                () -> assertEquals(departureDate.plusDays(3), entity.get().getDepartureDate())
+                () -> assertEquals(departureDate.plusDays(2), entity.get().getDepartureDate()),
+                () -> assertEquals(entity.get().getId(), entity.get().getParentId())
         );
     }
 
     @Test
     public void testNonConcurrentBook_should_succeed_when_departure_date_equal_to_arrival_date_of_another_booking() {
         // GIVEN
-        LocalDate arrivalDate = LocalDate.now().plusWeeks(10);
+        LocalDate arrivalDate = LocalDate.now().plusWeeks(2);
         LocalDate departureDate = arrivalDate.plusDays(3);
         final BookingDTO booking_1 = booking(arrivalDate, departureDate);
         final BookingDTO booking_2 = booking(arrivalDate.minusDays(3), arrivalDate);
@@ -122,14 +123,15 @@ class BookingServiceTest {
                 () -> assertNotNull(bookUID),
                 () -> assertTrue(entity.isPresent()),
                 () -> assertEquals(arrivalDate.minusDays(3), entity.get().getArrivalDate()),
-                () -> assertEquals(arrivalDate, entity.get().getDepartureDate())
+                () -> assertEquals(arrivalDate, entity.get().getDepartureDate()),
+                () -> assertEquals(entity.get().getId(), entity.get().getParentId())
         );
     }
 
     @Test
     public void testNonConcurrentBook_should_throw_exception_when_date_range_already_booked() {
         // GIVEN
-        LocalDate arrivalDate = LocalDate.now().plusWeeks(8);
+        LocalDate arrivalDate = LocalDate.now().plusWeeks(2).plusDays(4);
         LocalDate departureDate = arrivalDate.plusDays(3);
         final BookingDTO booking = booking(arrivalDate, departureDate);
 
@@ -142,7 +144,7 @@ class BookingServiceTest {
     @Test
     public void testNonConcurrentBook_should_throw_exception_when_booking_period_exceed_3_days() {
         // GIVEN
-        LocalDate arrivalDate = LocalDate.now().plusWeeks(11);
+        LocalDate arrivalDate = LocalDate.now().plusWeeks(3);
         LocalDate departureDate = arrivalDate.plusDays(4);
         final BookingDTO booking = booking(arrivalDate, departureDate);
 
@@ -155,13 +157,25 @@ class BookingServiceTest {
     @Test
     public void testNonConcurrentBook_should_throw_exception_when_departure_date_is_before_arrival_date() {
         // GIVEN
-        LocalDate arrivalDate = LocalDate.now().plusWeeks(12);
-        LocalDate departureDate = arrivalDate.minusDays(1);
+        LocalDate arrivalDate = LocalDate.now().plusWeeks(3);
+        LocalDate departureDate = arrivalDate.minusDays(2);
         final BookingDTO booking = booking(arrivalDate, departureDate);
 
         // WHEN
         InvalidInputException exception = assertThrows(InvalidInputException.class, () -> bookingService.book(booking));
         assertTrue(exception.getMessage().contains("is equal/greater than departure date"));
+    }
+
+    @Test
+    public void testNonConcurrentBook_should_throw_exception_when_not_book_1_day_ahead() {
+        // GIVEN
+        LocalDate arrivalDate = LocalDate.now();
+        LocalDate departureDate = arrivalDate.plusDays(1);
+        final BookingDTO booking = booking(arrivalDate, departureDate);
+
+        // WHEN
+        InvalidInputException exception = assertThrows(InvalidInputException.class, () -> bookingService.book(booking));
+        assertTrue(exception.getMessage().contains("be reserved minimum 1 day ahead"));
     }
 
     @Test
@@ -172,8 +186,8 @@ class BookingServiceTest {
 
     @Test
     public void testBook_cancel_then_book_should_succeed() {
-        LocalDate arrivalDate = LocalDate.now().minusWeeks(15);
-        LocalDate departureDate = arrivalDate.plusDays(3);
+        LocalDate arrivalDate = LocalDate.now().plusWeeks(3);
+        LocalDate departureDate = arrivalDate.plusDays(2);
         BookingDTO booking = booking(arrivalDate, departureDate);
         Long bookingUID_1 = bookingService.book(booking);
         bookingService.cancel(bookingUID_1);
@@ -184,7 +198,6 @@ class BookingServiceTest {
 
         // THEN
         assertAll(
-                () -> assertNotEquals(bookingUID_1, bookingUID_2),
                 () -> assertTrue(entity.isPresent()),
                 () -> assertEquals(arrivalDate, entity.get().getArrivalDate()),
                 () -> assertEquals(departureDate, entity.get().getDepartureDate())
@@ -194,11 +207,12 @@ class BookingServiceTest {
     @Test
     public void testCancel_should_succeed() {
         // GIVEN
-        LocalDate arrivalDate = LocalDate.now().minusWeeks(6);
-        LocalDate departureDate = arrivalDate.plusDays(3);
+        LocalDate arrivalDate = LocalDate.now().plusWeeks(4).minusDays(2);
+        LocalDate departureDate = arrivalDate.plusDays(1);
         final BookingDTO booking_1 = booking(arrivalDate, departureDate);
-        LocalDate departureDateBooking_2 = departureDate.plusDays(3);
-        final BookingDTO booking_2 = booking(departureDate, departureDateBooking_2);
+        LocalDate arrivalDateBooking_2 = departureDate.plusDays(1);
+        LocalDate departureDateBooking_2 = arrivalDateBooking_2.plusDays(1);
+        final BookingDTO booking_2 = booking(arrivalDateBooking_2, departureDateBooking_2);
 
         // WHEN
         final Long booking_1_uid = bookingService.book(booking_1);
@@ -217,17 +231,18 @@ class BookingServiceTest {
 
     @Test
     public void testModify_should_throw_exception_when_booking_is_nonexistent() {
-        InvalidInputException exception = assertThrows(InvalidInputException.class, () -> bookingService.modify(Long.MAX_VALUE, null));
+        InvalidInputException exception = assertThrows(InvalidInputException.class, () -> bookingService.modify(Long.MIN_VALUE, null));
         assertTrue(exception.getMessage().contains("no booking found from ID"));
     }
 
     @Test
     public void testModify_should_throw_exception_when_booking_period_exceed_3_days() {
         // GIVEN
-        LocalDate arrivalDate = LocalDate.now().minusWeeks(11);
-        LocalDate departureDate = arrivalDate.plusDays(3);
+        LocalDate arrivalDate = LocalDate.now().plusWeeks(3).plusDays(2);
+        LocalDate departureDate = arrivalDate.plusDays(1);
         BookingDTO booking = booking(arrivalDate, departureDate);
         Long bookingUID = bookingService.book(booking);
+        booking.setArrivalDate(departureDate.plusDays(1));
         booking.setDepartureDate(departureDate.plusDays(6));
 
         // WHEN
@@ -238,26 +253,28 @@ class BookingServiceTest {
     @Test
     public void testModify_should_succeed() {
         // GIVEN
-        LocalDate arrivalDate = LocalDate.now().minusWeeks(15);
-        LocalDate departureDate = arrivalDate.plusDays(3);
+        LocalDate arrivalDate = LocalDate.now().plusWeeks(3).plusDays(3);
+        LocalDate departureDate = arrivalDate.plusDays(2);
         BookingDTO booking = booking(arrivalDate, departureDate);
         Long bookingUID = bookingService.book(booking);
         LocalDate newArrivalDate = arrivalDate.plusDays(6);
         booking.setArrivalDate(newArrivalDate);
-        LocalDate newDepartureDate = newArrivalDate.plusDays(2);
+        LocalDate newDepartureDate = newArrivalDate.plusDays(1);
         booking.setDepartureDate(newDepartureDate);
+        String newEmail = "contact@upgrade.com";
+        booking.setVisitorEmail(newEmail);
 
         // WHEN
-        bookingService.modify(bookingUID, booking);
-        Optional<BookingEntity> entity = bookingRepository.findById(bookingUID);
-
+        Long newBookUID = bookingService.modify(bookingUID, booking);
+        Optional<BookingEntity> entity = bookingRepository.findById(newBookUID);
         // THEN
         assertAll(
                 () -> assertTrue(entity.isPresent()),
                 () -> assertEquals(newArrivalDate, entity.get().getArrivalDate()),
                 () -> assertEquals(newDepartureDate, entity.get().getDepartureDate()),
-                () -> assertEquals("hamidou.diallo@upgrade.com", entity.get().getVisitorEmail())
+                () -> assertEquals(newEmail, entity.get().getVisitorEmail())
         );
+
     }
 
     private BookingDTO booking(LocalDate arrivalDate, LocalDate departureDate) {
